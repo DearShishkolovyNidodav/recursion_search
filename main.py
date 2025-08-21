@@ -1,4 +1,5 @@
-import shutil
+import argparse
+import locale
 import os
 
 # Короче, заходим в директорию, ищем все файлы и директории, первые пихаем в один список, вторые во второй,
@@ -10,8 +11,21 @@ import os
 # то есть брать первый каталог из списка, доходить до самого дна, возвращаться к первому узлу и повторять пока
 # полностью все не пройдёшь. Минусы: не ебу как это написать. Плюсы: наверное в этом и есть суть рекурсии при работе
 # с файлами. Также не будет жрать много памяти за счёт множества процессов (но может работать медленнее первого варианта)
-def main(current_dir):
-    os.chdir(current_dir) # Заходим в рабочий каталог
+
+# Функция, которая определяет и возвращает язык системы пользователя. Если языка нет в description то, возвращает en.
+def get_language_description():
+    lang, _ = locale.getlocale() # Получаем язык системы
+
+    description = {
+        'ru': 'Скрипт предназначен для поиска и файлов в каталогах с большой вложенностью и копирования их в другой каталог, текущая версия скрипта: 0.2',
+        'en': 'The script is designed to search for files in directories with a large nesting and copy them to another directory, the current version of the script: 0.2',
+    } # Поддерживаемые языки
+
+    return description.get(lang.split('_')[0], description['en']) # Возвращаем язык
+
+# Функция, которая заходит в каталоги и ищет там файлы
+def main(input):
+    os.chdir(input) # Заходим в рабочий каталог
     print(f"Вход в директорию: {os.getcwd()}")
     list_of_files = os.listdir() # Получаем список всех элементов
     print(f"Список всех элементов в каталоге: {list_of_files}")
@@ -21,6 +35,9 @@ def main(current_dir):
     for dir in list_of_files: # Проходим по всем элементам и определяем каталоги
         if os.path.isdir(dir):
             print(f"Каталоги в текущем каталоге: {dir}")
-            main(dir)
+            main(dir) # Рекурсия
 
-main(current_dir=input("Введите путь к директории: ")) # Спрашиваем, с каким каталогом будем работать
+parser = argparse.ArgumentParser(description=get_language_description()) # Вся морока с argparse нужна чтобы всё необходимое передавать в виде аргументов командной строки (терминала).
+parser.add_argument("--input", type=str, required=True, help="The directory in which the script searches for files.")
+args = parser.parse_args()
+main(args.input)
