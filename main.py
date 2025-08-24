@@ -2,35 +2,19 @@ import argparse
 import locale
 import os
 from threading import Thread
-from pathlib import Path
-
-# Короче, заходим в директорию, ищем все файлы и директории, первые пихаем в один список, вторые во второй,
-# затем список файлов передаём в функцию которая перемещает их в заданную директорию. Далее из списка с директориями
-# берём первую (индекс 0), заходим в неё, вызываем функцию снова (собственно рекурсия). Можно читать все директории
-# из списка, создавать отдельный поток для каждой и уже потом заходить туда и выполнять функцию снова (для каждой
-# директории свой поток). Минусы - много потоков. Чем больше вложенность, тем больше. Плюсы: проще написать (?),
-# возможно будет быстрее выполняться (хотя всю память сожрёт). А ещё можно не ебать мозг и писать по-нормальному,
-# то есть брать первый каталог из списка, доходить до самого дна, возвращаться к первому узлу и повторять пока
-# полностью все не пройдёшь. Минусы: не ебу как это написать. Плюсы: наверное в этом и есть суть рекурсии при работе
-# с файлами. Также не будет жрать много памяти за счёт множества процессов (но может работать медленнее первого варианта)
-
-# ВАЖНО! Текущая проблема возникает потому, что не запоминает абсолютный путь к файлу и пытается идти по относительному пути,
-# которого не существует. Нужно как то запоминать полный путь к текущему каталогу, обрезать всё до знака разделителя,
-# и потом создавать поток не i, а i + [путь к текущему каталогу - последний каталог]. Тогда должно всё заработать
-
-# К сожалению, os.path.abspath определяет абсолютный путь очень всрато, с этим нужно что-то делать. Как вариант:
-# проверять, возможно ли перемещение по тому пути, который определил os.path.abspath. Если да, то перемещаться по
-# этому пути. Если нет, то скорее всего проблема в том, что os.path.abspath опять насрал и нужно сначала подняться на
-# каталог выше, затем снова определить абсолютный путь и переходить по нему. Это костыльный способ, нормальный это
-# понять, почему os.path.abspath лажает или как то самому определять абсолютный путь.
+import sys
 
 # Функция, которая определяет и возвращает язык системы пользователя. Если языка нет в description то, возвращает en.
 def get_language_description():
     lang, _ = locale.getlocale() # Получаем язык системы
 
     description = {
-        'ru': 'Скрипт предназначен для поиска и файлов в каталогах с большой вложенностью и копирования их в другой каталог, текущая версия скрипта: 0.2',
-        'en': 'The script is designed to search for files in directories with a large nesting and copy them to another directory, the current version of the script: 0.2',
+        'ru': 'Скрипт предназначен для выполнения операций над файлами в каталогах с большой вложенностью. '
+              'Доступные операции: поиск, копирование, перемещение файлов. Возможен поиск всех файлов либо '
+              'только файлов указанного типа. Текущая версия скрипта: 0.9',
+        'en': 'The script is designed to perform operations on files in directories with a large nesting. '
+              'Available operations: search, copy, move files. It is possible to search for all files or '
+              'only files of a specified type. Current version of the script: 0.9',
     } # Поддерживаемые языки
 
     return description.get(lang.split('_')[0], description['en']) # Возвращаем язык
@@ -38,6 +22,7 @@ def get_language_description():
 # Функция, которая заходит в каталоги и ищет там файлы
 def main(input):
     list_of_dirs = [] # Пустой список, в который будем класть директории
+    all_files = [] # Здесь будем хранить все файлы в каталоге
     abs_path_list = [] # Здесь будем хранить полные пути к каталогам
     os.chdir(input) # Заходим в рабочий каталог
     print(f"Вход в каталог: {os.getcwd()}")
@@ -45,13 +30,27 @@ def main(input):
     print(f"Список всех элементов в каталоге: {list_of_files}")
     for file in list_of_files: # Проходим по всем элементам и определяем файлы
         if os.path.isfile(file):
-            print(f"Файлы в текущем каталоге: {file}")
+            all_files.append(file)
     for dir in list_of_files: # Проходим по всем элементам и определяем каталоги
         if os.path.isdir(dir):
             list_of_dirs.append(dir) # Помещаем каталоги в список
+    print(f"Список всех файлов в этом каталоге: {all_files}")
     print(f"Список всех каталогов в этом каталоге: {list_of_dirs}")
+    for i in list_of_dirs: # Проходим по всем каталогам в списке
+        abs_path = os.path.abspath(i)  # Для каждого определяем абсолютный путь
+        print(f"Абсолютный путь к вложенному каталогу: {abs_path}")
+        abs_path_list.append(abs_path)  # Помещаем эти абсолютные пути в список
+    print(f"Список всех абсолютных путей к вложенным каталогам: {abs_path_list}")
+    for j in abs_path_list: # Проходим по всем абсолютным путям в списке и для каждого вызываем main() (рекурсия)
+        main(j)
 
 parser = argparse.ArgumentParser(description=get_language_description()) # Вся морока с argparse нужна чтобы всё необходимое передавать в виде аргументов командной строки (терминала).
 parser.add_argument("--input", type=str, required=True, help="The directory in which the script searches for files.")
+parser.add_argument("--what", type=str, default='search', choices=['search, copy, move'], help="Available actions. For copy and move required output directory.")
+parser.add_argument("--output", type=str, help="Directory to which files will be copied/moved")
+parser.add_argument("--type", type=str, help="What types of files will be found. Default - all files.")
+parser.add_argument("--threads", type=bool, default=False, help="Whether nested directories will be processed multithreaded.")
+parser.add_argument("--verbose", type=bool, default=False, help="Outputs full information.")
+parser.add_argument("--limit", type=int, default=1000, help="Limit the number of recursive calls.")
 args = parser.parse_args()
 main(args.input)
