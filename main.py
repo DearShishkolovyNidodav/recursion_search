@@ -2,6 +2,7 @@ import argparse
 import locale
 import os
 from threading import Thread
+from pathlib import Path
 
 # Короче, заходим в директорию, ищем все файлы и директории, первые пихаем в один список, вторые во второй,
 # затем список файлов передаём в функцию которая перемещает их в заданную директорию. Далее из списка с директориями
@@ -37,6 +38,7 @@ def get_language_description():
 # Функция, которая заходит в каталоги и ищет там файлы
 def main(input):
     list_of_dirs = [] # Пустой список, в который будем класть директории
+    abs_path_list = [] # Здесь будем хранить полные пути к каталогам
     os.chdir(input) # Заходим в рабочий каталог
     print(f"Вход в каталог: {os.getcwd()}")
     list_of_files = os.listdir() # Получаем список всех элементов
@@ -48,21 +50,6 @@ def main(input):
         if os.path.isdir(dir):
             list_of_dirs.append(dir) # Помещаем каталоги в список
     print(f"Список всех каталогов в этом каталоге: {list_of_dirs}")
-    if len(list_of_dirs) == 0: # Проверяем, не дошли ли мы до конца
-        print("В данном каталоге нет вложенных каталогов")
-        os.chdir('..') # Если мы на дне, перемещаемся на один каталог выше
-        print(f"Перемещаемся на каталог выше, текущий каталог: {os.getcwd()}")
-    for i in list_of_dirs: # Проходим по всем каталогам в списке
-        print(i)
-        # os.chdir('..')
-        abs_path = os.path.abspath(i)  # Определяем абсолютный путь к каталогу
-        print(f"Абсолютный путь: {abs_path}")
-        print(f"Текущий каталог: {os.getcwd()}")
-        try:
-            abs_path = Thread(target=main(abs_path)) # Создаём отдельный поток для каждого каталога
-            abs_path.start() # Запускаем поток
-        except FileNotFoundError:
-            print(f"Не удалось войти в каталог: {abs_path}") # Если не найден каталог, то сообщаем
 
 parser = argparse.ArgumentParser(description=get_language_description()) # Вся морока с argparse нужна чтобы всё необходимое передавать в виде аргументов командной строки (терминала).
 parser.add_argument("--input", type=str, required=True, help="The directory in which the script searches for files.")
